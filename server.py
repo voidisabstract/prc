@@ -12,41 +12,42 @@ print(f"Сервер запущен на {HOST}:{PORT}")
 print("Ожидание подключения двух клиентов...")
 
 clients = []
+nicknames = []
 
 # Принимаем двух клиентов
-client1, addr1 = server.accept()
-print(f"Клиент 1 подключен: {addr1}")
-client1.send("Вы подключены как Клиент 1".encode())
-clients.append(client1)
-
-client2, addr2 = server.accept()
-print(f"Клиент 2 подключен: {addr2}")
-client2.send("Вы подключены как Клиент 2".encode())
-clients.append(client2)
+for i in range(2):
+    client, addr = server.accept()
+    nickname = client.recv(1024).decode()
+    clients.append(client)
+    nicknames.append(nickname)
+    print(f"Клиент {i+1} ({nickname}) подключен: {addr}")
+    client.send(f"Вы подключены как {nickname}".encode())
 
 print("Оба клиента подключены! Начинаем чат...\n")
 
-def handle_client(client, other_client, client_num):
-    """Обрабатывает сообщения от одного клиента и пересылает другому"""
+def handle_client(client, other_client, nickname, other_nickname):
+    """Обработка сообщений от одного клиента"""
     while True:
         try:
             msg = client.recv(1024).decode()
             if msg:
-                print(f"Клиент {client_num}: {msg}")
-                other_client.send(f"Клиент {client_num}: {msg}".encode())
+                print(f"{nickname}: {msg}")
+                other_client.send(f"{nickname}: {msg}".encode())
             else:
                 break
         except:
             break
     
-    print(f"Клиент {client_num} отключился")
-    other_client.send(f"Клиент {client_num} покинул чат".encode())
+    print(f"{nickname} отключился")
+    other_client.send(f"Система: {nickname} покинул чат".encode())
     client.close()
     other_client.close()
 
-# Запускаем отдельный поток для каждого клиента
-thread1 = threading.Thread(target=handle_client, args=(client1, client2, 1))
-thread2 = threading.Thread(target=handle_client, args=(client2, client1, 2))
+# Запускаем потоки для каждого клиента
+thread1 = threading.Thread(target=handle_client, 
+                          args=(clients[0], clients[1], nicknames[0], nicknames[1]))
+thread2 = threading.Thread(target=handle_client, 
+                          args=(clients[1], clients[0], nicknames[1], nicknames[0]))
 
 thread1.daemon = True
 thread2.daemon = True
@@ -54,7 +55,6 @@ thread2.daemon = True
 thread1.start()
 thread2.start()
 
-# Ждем завершения потоков
 thread1.join()
 thread2.join()
 
